@@ -1,0 +1,516 @@
+\documentclass{article} 
+\input{packages}
+\input{macros}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Header
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\renewcommand{\assignmenttitle}{Assignment 3: Neural networks}
+\renewcommand{\studentname}{Victor Busa}
+\renewcommand{\email}{victor.busa@ens-paris-saclay.fr}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Syntax for using figure macros:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% \singlefig{filename}{scalefactor}{caption}{label}
+% \doublefig{\subfig{filename}{scalefactor}{subcaption}{sublabel}}
+%           {\subfig{filename}{scalefactor}{subcaption}{sublabel}}
+%           {global caption}{label}
+% \triplefig{\subfig{filename}{scalefactor}{subcaption}{sublabel}}
+%           {\subfig{filename}{scalefactor}{subcaption}{sublabel}}
+%           {\subfig{filename}{scalefactor}{subcaption}{sublabel}}
+%           {global caption}{label}
+%
+% Tips:
+% - with scalefactor=1, a single figure will take the whole page width; a double figure, half page width; and a triple figure, a third of the page width
+% - image files should be placed in the image folder
+% - no need to put image extension to include the image
+% - for vector graphics (plots), pdf figures are suggested 
+% - for images, jpg/png are suggested
+% - labels can be left empty {}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Beginning of assignment
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+\maketitle
+
+\section{Training a neural network by back-propagation}
+\subsection{Computing gradients of the loss with respect to network parameters}
+\question{Question 1.1: In your report, derive using the chain rule the form of the gradient of the logistic loss (3) with respect to the parameters of the network $W_i$, $W_o$, $B_i$ and $B_o$. (i) First, write down the derivative of the loss (3) with respect to the output of the network $\bar{Y}(X)$. (ii) Then write down the derivatives of the output $\bar{Y}$ with respect to the parameters $W_o$ , $B_o$ of the output layer, and (iii) then with respect to $B_i$ and $W_i$. Note: present the complete derivations, not only the final results.}
+
+let's note:
+
+\begin{align*}
+H &= ReLU(W_iX + B_i) \\
+Y_0(X) &= W_0 H + B_0 \\
+s(Y_0(X), Y) &= log[1 + exp(-YY_0(X))]\tag{3}
+\end{align*}
+
+\begin{itemize}
+\item (i) We have:
+	\begin{align*}
+	\frac{\partial s}{\partial Y_0(X)} &= \frac{d}{d Y_0(X)}[log(1 + exp(-YY_0(X)))] = \frac{-Y exp(-YY_0(X))}{1 + exp(-YY_0(X))} \\
+	&= -Y \frac{1}{1 + exp(YY_0(X))} = -Y \sigma (-YY_0(X))\tag{E}
+	\end{align*}
+	Where the first equality comes from the fact that $Y_0(X)$ is a scalar and where we introduce the sigmoid function in the last equality.
+
+\item (ii) The calculation of $\frac{\partial Y_0(X)}{\partial W_0}$ gives us:
+\begin{align*}
+\frac{\partial Y_0(X)}{\partial W_0} = \begin{pmatrix} 
+\frac{d Y_0(X)}{d W_{0_1}} \\
+\vdots \\
+\frac{d Y_0(X)}{d W_{0_n}}
+\end{pmatrix}
+\end{align*}
+and:
+$$
+\frac{d Y_0(X)}{d W_{0_i}} = \frac{d}{d W_{0_i}}\left(\sum\limits_{k=1}^n W_{0_k}H_k\right) = H_i
+$$
+So finally:
+\begin{align}
+\frac{\partial Y_0(X)}{\partial W_0} = H^{\intercal}
+\end{align}
+the gradient of $Y_0(X)$ w.r.t to $B_0$ is straightforward as $B_0 \in \mathbb{R}$:
+
+\begin{align}
+\frac{d Y_0(X)}{d B_0} = \frac{d B_0(X)}{d B_0} = 1
+\end{align}
+
+Using the chain rule with identity (E), (1) and (2) we have:
+
+\begin{framed}
+\begin{align*}
+\frac{\partial s(Y_0(X), Y)}{\partial W_0} = \frac{\partial s(Y_0(X), Y)}{\partial Y_0} \frac{\partial Y_0(X)}{\partial W_0} = -Y \sigma (-YY_0(X)) H^{\intercal} \\
+\frac{\partial s(Y_0(X), Y)}{\partial B_0} = \frac{\partial s(Y_0(X), Y)}{\partial Y_0} \frac{\partial Y_0(X)}{\partial B_0} = -Y \sigma (-YY_0(X))
+\end{align*}
+\end{framed}
+
+\item (iii) Noting $U \triangleq W_i X + B_i$, let's compute $\frac{\partial Y_0(X)}{\partial W_i}$ using the chain rule:
+
+\begin{align*}
+\frac{\partial Y_0(X)}{\partial U_l} &= \sum\limits_{k} \frac{\partial Y_0(X)}{\partial H_k} \frac{\partial H_k}{\partial U_l} \\
+&= \sum\limits_{k} W_{o_k} \frac{\partial}{\partial U_l} max(0, U_k) \\
+&= \sum\limits_{k} W_{o_k} \mathds{1}_{(U_k > 0)}\mathds{1}_{(k = l)} \\
+&= W_{o_l} \mathds{1}_{(U_l > 0)}
+\end{align*}
+
+As $U$ is a vector, it naturally follows that:
+
+\begin{align*}
+\frac{\partial Y_0(X)}{\partial U} &= \begin{pmatrix}
+\frac{\partial Y_0(X)}{\partial U_1} & \frac{\partial Y_0(X)}{\partial U_2} & \hdots & \frac{\partial Y_0(X)}{\partial U_K}
+\end{pmatrix}^{\intercal} \\
+&= W^{\intercal}_o \circ \mathds{1}_{(U > 0)} \\
+&= W^{\intercal}_o \circ \mathds{1}_{(W_i X + B_i > 0)}\tag{$1^{\prime}$}
+\end{align*}
+
+Moreover, by chain rule we also have:
+
+\begin{align*}
+\frac{\partial Y_0(X)}{\partial W_i} &= \frac{\partial Y_0(X)}{\partial U} \frac{\partial U}{\partial W_i} \\
+&= W^{\intercal}_o \circ \mathds{1}_{(W_i X + B_i > 0)} \frac{\partial}{\partial W_i}(W_i X + B_i) \\
+&= W^{\intercal}_o \circ \mathds{1}_{(W_i X + B_i > 0)} X^{\intercal}\tag{$2^{\prime}$}
+\end{align*}
+
+Using the previous calculation and the chain rule, we can compute $\frac{\partial Y_0(X)}{\partial B_i}$ directly:
+
+\begin{align*}
+\frac{\partial Y_0(X)}{\partial W_i} &= \frac{\partial Y_0(X)}{\partial U} \frac{\partial U}{\partial B_i} \\
+&= W^{\intercal}_0 \circ \mathds{1}_{(U > 0)} I = W^{\intercal}_0 \circ \mathds{1}_{(W_i X + B_i > 0)}\tag{$3^{\prime}$}
+\end{align*}
+
+Finally, using the chain rule and the identities ($1^{\prime}$), ($2^{\prime}$), ($3^{\prime}$), we have:
+
+\begin{framed}
+\begin{align*}
+\frac{\partial s(Y_0(X), Y)}{\partial W_i} &= \frac{\partial s(Y_0(X), Y)}{\partial Y_0(X)} \frac{\partial Y_0(X)}{\partial W_i} \\
+&= -Y \sigma (-YY_0(X)) W^{\intercal}_0 \circ \mathds{1}_{(W_i X + B_i > 0)} X^{\intercal} \\
+\frac{\partial s(Y_0(X), Y)}{\partial B_i} &= \frac{\partial s(Y_0(X), Y)}{\partial Y_0(X)} \frac{\partial Y_0(X)}{\partial B_i} \\
+&= -Y \sigma (-YY_0(X)) W^{\intercal}_0 \circ \mathds{1}_{(W_i X + B_i > 0)}
+\end{align*}
+\end{framed}
+\end{itemize}
+
+\subsection{Numerically verify the gradients}
+\question{Question 1.2.A:: In your report, write down the general formula for numerically computing the approximate derivative of the loss $s(\Theta)$, with respect to the parameter $\Theta_i$ using finite differencing.  Hint: use the first order Taylor expansion of loss $s(\Theta + \Delta \Theta)$ around point}
+
+Using Taylor expansion we have:
+
+\begin{align*}
+f(x+h) &= f(x) + h f^{(1)}(x) + \frac{h^2}{2!}f^{(2)}(x) + \mathcal{O}(h^3) \\
+f(x-h) &= f(x) - h f^{(1)}(x) + \frac{h^2}{2!}f^{(2)}(x) + \mathcal{O}(h^3)
+\end{align*}
+
+\noindent From what it naturally follows:
+
+\begin{align}
+\frac{f(x+h) - f(x)}{h} = f^{(1)}(x) + \mathcal{O}(h)\tag{$E_1$}
+\end{align}
+
+\noindent Yet, we can notice that:
+\begin{align*}
+\frac{f(x+h) - f(x-h)}{2h} &= \frac{1}{2h}(2hf^{(1)}(x) + \mathcal{O}(h^3)) \\
+&= f^{(1)}(x) + \mathcal{O}(h^2)\tag{$E_2$}
+\end{align*}
+
+\noindent ($E_2$) is better than ($E_1$) as the error approximation is only on order of $\mathcal{O}(h^2))$, so finally we will use the approximation:
+
+\begin{align*}
+s^{(1)}(\Theta) \approx \frac{s(\Theta + \Delta \Theta) - s(\Theta - \Delta \Theta)}{2 \Delta \Theta}
+\end{align*}
+
+\question{Question 1.2.B: In your report, choose a training example $\{X,Y\}$ and report the values of the analytically computed gradients :  \texttt{grad\_s\_Wi}, \texttt{grad\_s\_Wo}, \texttt{grad\_s\_bi}, \texttt{grad\_s\_bo} as well as their numerically computed counterparts: \texttt{grad\_s\_Wi\_approx}, \texttt{grad\_s\_Wo\_approx}, \texttt{grad\_s\_bi\_approx}, \texttt{grad\_s\_bo\_approx} Are their values similar? Report and discuss the absolute and relative errors.}
+
+using $\Delta \Theta$ = 1e-6, we have:
+\begin{itemize}
+\item For \texttt{grad\_s\_Wo} and \texttt{grad\_s\_Wo\_approx} we have:
+	\begin{align*}
+	grad\_s\_Wo &=
+	\begin{pmatrix} 
+	0.047586172091192 & 0.035408612226365 & 0
+	\end{pmatrix}
+	\\
+	grad\_s\_Wo\_approx &=
+	\begin{pmatrix} 
+	0.047586172065295 & 0.035408612226312 & 0
+	\end{pmatrix}
+	\end{align*}
+
+\item For \texttt{grad\_s\_Wi} and \texttt{grad\_s\_Wi\_approx} we have:
+
+	\begin{align*}
+	grad\_s\_Wi &=
+	\begin{pmatrix} 
+	-0.018388512294571 & 0.002515533629043 \\
+	-0.013677128631161 & 0.001871020149389 \\
+	0 & 0 \\
+	\end{pmatrix}
+	\\
+	grad\_s\_Wi\_approx &=
+	\begin{pmatrix} 
+	-0.018388512314400 & 0.002515533670255 \\
+	-0.013677128602417 & 0.001871020127893 \\
+	0 & 0 \\
+	\end{pmatrix}
+	\end{align*}
+	
+\item For \texttt{grad\_s\_bo} and \texttt{grad\_s\_bo\_approx} we have:
+
+	\begin{align*}
+	grad\_s\_bo &= 0.007884628172997	\\
+	grad\_s\_bo\_approx &= 0.007884628180389
+	\end{align*}
+
+\item For \texttt{grad\_s\_bi} and \texttt{grad\_s\_bi\_approx} we have:
+	\begin{align*}
+	grad\_s\_bi &=
+	\begin{pmatrix} 
+	-0.008378649232738 \\
+	-0.006231926839746 \\
+	0
+	\end{pmatrix}
+	\quad
+	grad\_s\_bi\_approx =
+	\begin{pmatrix} 
+	-0.008378649180713 \\
+	-0.006231926874718 \\
+	0
+	\end{pmatrix}
+	\end{align*}
+
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|l|l|l|l|}
+\hline
+ & \textbf{Wo} & \textbf{Wi} & \textbf{bi} & \textbf{bo} \\ \hline
+\textbf{Absolute Error} & 2.595021e-11 & 6.270850e-11 & 8.699778e-11 & 7.391931e-12 \\ \hline
+\textbf{Relative Error} & 3.126727e-10 & 1.955629e-09 & 5.954439e-09 & 9.375117e-10 \\ \hline
+\end{tabular}
+\caption{Absolute and Relative error for Wi, Wo, bi, bo after $40000$ iterations for $h=3$, $\alpha = 0.02$}
+\label{table: comparison}
+\end{table}
+
+\noindent The absolute error shouldn't be taken into account. Let's consider that we computed an analytic gradient and a numerical gradient. If the 2 gradients are about 1.0 and the absolute error is 1e-4 than we consider the 2 gradients to match. However, if both gradients were on order of 1e-5 than there difference: 1e-4 is a very big difference and the gradients don't match. Hence, we need to divide by $max(grad\_s\_x\_appox, grad\_s\_x)$ to account for the order of each gradient.
+
+\subsection{Training the network using backpropagation and experimenting with different parameters.}
+\question{Question 1.3.A: Include the decision hyper-plane visualization and the training and validation error plots in your report. What are the final training and validation errors? After how many iterations did the network converge?}
+
+The network converges after roughly $30000$ iterations. The final training and validation errors are $0,00\%$ as shown in Figure~\ref{fig:hyperplan_decision}
+
+\singlefig{decision_hyp}{1}{Hyperplan, Training and Validation Error}{fig:hyperplan_decision}
+
+\question{Question 1.3.B: Random initializations. Repeat this procedure 5 times from 5 different random initializations. Record for each run the final training and validation errors. Did the network always converge to zero training error? Note: to speed-up the training you can set the variable $visualization\_step = 10000$. This will plot the visualization figures less often and hence will speed-up the training.}
+
+After 5 random initialization starts, one of them didn't converges to $0.00\%$  training and validation errors. The final training and validation errors for this bad random initialization of the parameters are respectively $7,20\%$ and $9,90\%$ as shown in Figure~\ref{fig:non_conv}.
+
+\singlefig{hyp_non_conv}{1}{Hyperplan, Training and Validation Error for bad random initialization of the parameters}{fig:non_conv}
+
+\question{Question 1.3.C: Learning rate. Keep $h=7$ and change the learning rate to values $lrate = \{2, 0.2, 0.02, 0.002\}$. For each of these values run the training procedure 3 times and observe the training behaviour. For each run and the value of the learning rate report: the final (i) training and (ii) validation errors, and (iii) after how many iterations the network converged (if at all). Visualize the decision hyperplane and the evolution of the training error for each value of the learning (here only one of the three runs is sufficient). Briefly discuss the different behaviour of the training for different learning rates.}
+
+\begin{table}[H]
+\centering
+\bgroup
+\def\arraystretch{1.5}
+\begin{tabular}{|l|l|l|l|l|l|}
+\hline
+ & \textbf{learning rate} & 2 & \textbf{0.2} & 0.02 & 0.002 \\ \hline
+\multirow{3}{*}{\textbf{run 1}} & Training error & 22.70\% & 0.00 \% & 0.00 \% & 0.50 \% \\ \cline{2-6} 
+ & Validation error & 23.10 \% & 0.00 \% & 0.00 \% & 0.60 \% \\ \cline{2-6} 
+ & Convergence (nb of iterations) & No & 6k & 20k & No \\ \hline
+\multirow{3}{*}{\textbf{run 2}} & Training error & 31.70 \% & 0.00 \% & 0.00 \% & 0.50 \% \\ \cline{2-6} 
+ & Validation error & 33.30 \% & 0.00 \% & 0.00 \% & 0.70 \% \\ \cline{2-6} 
+ & Convergence (nb of iterations) & No & 6.5k & 28k & No \\ \hline
+\multirow{3}{*}{\textbf{run 3}} & Training error & 25.90 \% & 0.00 \% & 0.00 \% & 1.70 \% \\ \cline{2-6} 
+ & Validation error & 26.40 \% & 0.00 \% & 0.00 \% & 1.60 \% \\ \cline{2-6} 
+ & Convergence (nb of iterations) & No & 12k & 28k & No \\ \hline
+\end{tabular}
+\egroup
+\caption{Performance of the neural network for 4 different values of the learning rate}
+\label{table:lr_perf}
+\end{table}
+
+On one hand, if we choose a learning rate too small, the neural network will converge but it will take too many iterations. On the other
+hand, if we choose a learning rate too high, the neural network won't converge. Hence we have to perfectly tune the learning rate hyperparameter
+in order to achieve the best \textbf{Validation error}. One good idea would be to use a \textbf{decay learning rate}, i.e. a high learning rate that decays with
+the number of iterations.
+
+\singlefig{lr_2_02}{1}{Hyperplans for a learning rate of 2 and 0.2}{fig:lr_hyp_1}
+\singlefig{lr_002_0002}{1}{Hyperplans for a learning rate of 0.02 and 0.002}{fig:lr_hyp_2}
+
+\question{Question 1.3.D: The number of hidden units. Set the learning rate to $0.02$ and change the number of hidden units $h = \{1, 2, 5, 7, 10, 100\}$. For each of these values run the training procedure 3 times and observe the training behavior. For each run and the value of the number of hidden units record and report: the value of the final (i) training and (ii) validation error, and (iii) after how many iterations the network converged (if at all). Show the plot of the final decision hyperplane for each value of h (only one of the three plots for each h is sufficient). Discuss the different behaviors for the different numbers of hidden units.}
+
+\begin{table}[H]
+\centering
+\bgroup
+\def\arraystretch{2.5}
+\begin{tabular}{|c|c|c|c|c|c|c|c|}
+\hline
+\multicolumn{1}{|l|}{} &  \textbf{\makecell{Number of \\ hidden units}} & 1 & 2 & 5 & 7 & 10 & 100 \\ \hline
+\multirow{3}{*}{\textbf{run 1}} & \makecell{Training \\ error} & 8.80 \% & 8.10 \% & 7.10 \% & 0.00 \% & 0.00 \% & 0.00 \% \\ \cline{2-8} 
+ & \makecell{Validation \\ error} & 11.40 \% & 8.70 \% & 8.10 \% & 0.00 \% & 0.00 \% & 0.00 \% \\ \cline{2-8} 
+ & \makecell{Convergence \\ (nb of iterations)} & No & No & No & 25k & 20k & 18k \\ \hline
+\multirow{3}{*}{\textbf{run 2}} & \makecell{Training \\ error} & 9.10 \% & 9.10 \% & 6.80 \% & 0.00 \% & 7.20 \% & 0.00 \% \\ \cline{2-8} 
+ & \makecell{Validation \\ error} & 9.90 \% & 11.10 \% & 8.90 \% & 0.00 \% & 7.90 \% & 0.00 \% \\ \cline{2-8} 
+ & \makecell{Convergence \\ (nb of iterations)} & No & No & No & 20k & No & 16k \\ \hline
+\multirow{3}{*}{\textbf{run 3}} & \makecell{Training \\ error} & 8.70 \% & 8.50 \% & 7.30 \% & 0.00 \% & 0.00 \% & 0.00 \% \\ \cline{2-8} 
+ & \makecell{Validation \\ error} & 11.30 \% & 10.30 \% & 9.40 \% & 0.00 \% & 0.00 \% & 0.00 \% \\ \cline{2-8} 
+ & \makecell{Convergence \\ (nb of iterations)} & No & No & No & 25k & 25k & 19k \\ \hline
+\end{tabular}
+\egroup
+\caption{Performance of the neural network for 7 different values the number of hidden units}
+\label{hu_perf}
+\end{table}
+
+We can see that the higher the number of hidden units the more likely the neural network will converge. However adding more hidden units increase the 
+time of training because the gradient will have to flow through each hidden units during the forward and the backward passes. Hence, there is a
+trade-off between the number of hidden units to consider and the time needed to train the neural network. Finally, depending on the problem, adding more
+hidden units will actually increase the probability of overfitting, especially if there is not enough data to feed to the neural network.
+
+\singlefig{h_1_2}{1}{Hyperplans for 1 and 2 hidden units}{fig:h_hyp_1}
+\singlefig{h_5_7}{1}{Hyperplans for 5 and 7 hidden units}{fig:h_hyp_2}
+\singlefig{h_10_100}{1}{Hyperplans for 10 and 100 hidden units}{fig:h_hyp_3}
+
+\section{CNN building blocks}
+\subsection{convolution}
+
+\question{Question 2.1:
+\begin{itemize}
+\item i. What filter have we implemented?
+\item ii. How are the RGB colour channels processed by this filter?
+\item iii. What image structure are detected?
+\end{itemize}}
+
+A detailed explanation is provided along with a Figure. See Figure ~\ref{fig:filters}
+\begin{itemize}
+\item i. The filter implemented is a edge detector.
+\item ii. each RGB channel are filtered with the same filter
+\item iii. This filter detects variation of color intensity along cardinal directions. It is an edge detector
+\end{itemize}
+
+\textbf{Note}: A better filter to detect edges is:
+\begin{align*}
+\begin{pmatrix}
+1 & 1 & 1 \\
+1 & -8 & 1 \\
+1 & 1 & 1
+\end{pmatrix}
+\end{align*}
+
+As it also accounts for the difference of color along the diagonals.
+
+\singlefig{q21.png}{0.5}{\emph{Up}: Red channel with very different color along oriented axis. \emph{Middle}: Green channel with uniform color in all directions, i.e no sharp edges. \emph{Down}: Blue channel with sharp edges along the up and left direction. After convolution with the filter we see that when there is a very high difference of intensity of color the absolute value of the result is high (presence of edges) while when the color is roughly uniform along all cardinal directions the absolute value of the result is small}{fig:filters}
+
+\subsection{non-linear activation functions}
+\question{Question 2.2: Some of the functions in a CNN must be non-linear. Why?}
+
+The goal of a Neural network is to be able to separate very complex forms. If all the functions in a CNN (and more generally in a Neural Network) were
+linear then the output of the neural network would be linear and hence the neural network becomes just a linear classifier which we don't want. So neural networks
+should have non-linear functions to be able to separate very complex forms. In a CNN, ReLU and max-pooling allow to break the linearity of the model.
+
+\subsection{pooling}
+\question{Question 2.3: Look at the resulting image. Can you interpret the result?}
+
+Max-pooling is an operation that keeps the maximum value of each RGB channel in a certain neighborhood. Generally in practice it has been shown that lower max-pooling filter is better.
+Hence, in practice we often use $2 \times 2$ max-pooling filters such that the max-pooling operation will keep the brightest pixel among 4 \textsl{neighbors} pixels. Hence, the resulting image will
+look like a smaller blurred version of the input image.
+
+\singlefig{blurred_peppers}{0.5}{Result of max-pooling}{fig:maxpool}
+
+\section{back-propagation and derivatives}
+\subsection{the theory of back-propagation}
+\question{Question 3.1.A: The derivatives $\frac{\partial f}{\partial w_l}(x_0; w_1, \hdots, w_L)$ (derivatives of the loss with respect to any parameters $w_l$) have the same size as the parameters $w_l$. Why?}
+
+The derivative $\frac{\partial f}{\partial w_l}(x_0; w_1, \hdots, w_L)$ as the same size as $w_l$ because the output of the network is a \textbf{scalar} and we are taking the derivative w.r.t $w_l$.
+
+
+\section{learning a character CNN}
+\subsection{prepare the data}
+\subsection{initialize a CNN architecture}
+\question{Question 4.2.A: By inspecting \texttt{initializeCharacterCNN.m} get a sense of the architecture that will be trained. How many layers are there? How big are the filters?}
+
+There are 8 layers, and we have 4 filters which are:
+\begin{itemize}
+\item $20$ filters of size $5 \times 5 \times 1$
+\item $50$ filters of size $5 \times 5 \times 20$
+\item $500$ filters of size $4 \times 4 \times \times 50$
+\item $26$ filters of size $2 \times 2 \times 500$
+\end{itemize}
+
+A most detailed structure of the CNN is provided in Figure ~\ref{fig:cnn_structure}
+
+\singlefig{q42a}{0.8}{Detailed structure of the CNN}{fig:cnn_structure}
+
+\question{Question 4.2.B:
+\begin{itemize}
+\item i. Understand what the softmax operator does. Hint: to use the log-loss the data must be in the (0, 1] interval.
+\item ii. Understand what is the effect of minimising the log-loss. Which neuron’s output should become larger?
+\end{itemize}}
+
+\begin{itemize}
+\item i. The softmax operator allows to create a probability distribution vector, i.e a vector whose sum of the rows are $1$ and whose value in each row represents the probability
+of belonging to the class corresponding to the the index of the row.
+\item ii. Minimizing the log-loss would have for effect to choose the class that has the highest probability and hence it will favor the truth neuron's output to be larger and the others to be lower.
+\end{itemize}
+
+
+\subsection{train and evaluate the CNN}
+\question{Question 4.3: Run the learning code and examine the plots that are produced. As training completes answer the following questions:
+\begin{itemize}
+\item i. There are two sets of curves: energy and prediction error. What do you think is the difference? What is the “energy”? 
+\item ii. Some curves are labeled “train” and some other “val”. Should they be equal? Which one should be lower than the other? 
+\item iii. Both the top-1 and top-5 prediction errors are plotted. What do they mean? What is the difference?
+\end{itemize}}
+
+\singlefig{net-train}{0.8}{Result of training the CNN}{fig:curvesCNN}
+
+\begin{itemize}
+\item i. The energy curve represents simply the norm 2 difference between the true classification (here for example $(0, \hdots, 1, \hdots, 0)$ with a 1 in index $i$) and the classification outputted by the neural network (for example: $(p_1, \hdots, p_i, \hdots, p_{26})$ with $\sum\limits_{i=1}^{26} p_{i} = 1$ and hopefully $p_{i} > p_{j}$, $\forall j \neq i$)
+\item ii. In practice the validation curve should be above the training curve. It reveals that the model suffers from overfitting \textbf{which is natural}. Yet, we want to reduce as much as possible the overfitting as we want the model to performs well on unseen data. Here the model overfits a lot as the validation error is around 0.06 \% after 15 epochs and the training error is 0.00 \%.
+\item iii. Top5 error is simply the fraction of test samples where the correct label (class) does not appear in the top 5 predicted results when the results are sorted in decreasing order of confidence. Hence, having a top5 error of 0.00 \% means that the ground-truth label associated with the input image is always in the top 5 labels returned by the neural network. Top1 error then represents the error committed by the neural network (predicted label different from the ground-truth label).
+\end{itemize}
+
+
+\subsection{visualise the learned filters}
+\question{Question 4.4: what can you say about the filters?}
+
+the filters of the first layer represent high level features of the input image such that the filter will be active when the specific feature that encode the filter is in the input image. Figure ~\ref{fig:filters_1_3} and ~\ref{fig:filters_5_7} display 25 filters for each layer
+
+\doublefig{\subfig{filters_1}{0.8}{25 filters from the first layer}{fig:filters_1}}
+           {\subfig{filters_3}{0.8}{25 filters from the third layer}{fig:filters_3}}
+           {25 filters for the 2 first convolution layers}{fig:filters_1_3}
+					
+\doublefig{\subfig{filters_5}{0.8}{25 filters from the fifth layer}{fig:filters_5}}
+           {\subfig{filters_7}{0.8}{25 filters from the seventh layer}{fig:filters_7}}
+           {25 filters for the 2 latest convolution layers}{fig:filters_5_7}
+
+
+\subsection{apply the model}
+\question{Question 4.5.A: The image is much wider than $32$ pixels. Why can you apply to it the CNN learned before for $32 \times 32$ patches? Hint: examine the size of the CNN output using \texttt{size(res(end).x)}}
+
+We can apply to it the CNN learned before because the width of the image is a multiple of 32. In our case the width is 576 = 32 * 18.
+
+\question{Question 4.5.B: Comment on the quality of the recognition. Does this match your expectation given the recognition rate in your validation set (as reported by \texttt{cnn\_train} during training)?}
+
+\texttt{decodeCharacters} return lot's of incorrect characters. It is due to the fact that the model overfits a lot as we've mentioned in  4.3.ii. As seen in Figure ~\ref{fig:decodeChar}
+the output of decodeCharacters is: \\
+ntdmhmueesmmrnqamntdhqddmhmkeeouxcqdamntdhqddmhmkeemumdakboyyggjmtcd \\
+fhmnqamssreammdddhlkudddhmkeemmdifhqamdmheesmntdmhmueesmmnmnmhmadmhtt \\
+
+\singlefig{q45a}{1}{Result of \texttt{decodeCharacters} function}{fig:decodeChar}
+
+\subsection{training with jitter}
+\question{Question 4.6:
+\begin{itemize}
+\item i. Look at the training and validation errors. Is their gap as wide as it was before? 
+\item ii. Use the new model to recognise the characters in the sentence by repeating the previous part. Does it work better?
+\end{itemize}}
+
+\singlefig{net-train-jit}{0.5}{Result of training the CNN with jitter}{fig:curvesCNN-jitter}
+
+\begin{itemize}
+\item i. The gap between the validation and training error is not as big as previously. That indicates that the model doesn't overfit as much as previously
+\item ii. The new model performs better at recognizing the character of the input image. As seen in Figure ~\ref{fig:decodeChar2} ,the output of decodeCharacters is now: \\
+ttthhheeeeirrraaattttttthhheeeeccccaaattttttthhheeeeedddeoooggggcccc \\
+hhhaaaassseeedddjkkkkddduheeeedddjeaaattteeeittthhheeeeinmmmmaaaahttt \\
+\end{itemize}
+
+\singlefig{q46}{1}{Result of \texttt{decodeCharacters} function}{fig:decodeChar2}
+
+
+\section{using pretrained models}
+\subsection{Image classification with a pretrained CNN}
+
+\question{Question 5.1:
+\begin{itemize}
+\item i. Show the classification result. 
+\item ii. List the top-5 classes.
+\end{itemize}}
+
+
+\begin{itemize}
+\item i. The classification outputs that the image represents a \textbf{bell pepper} with probability \textbf{}0.704. See Figure ~\ref{fig:pepper}
+
+\singlefig{q51}{0.6}{Classification output for pepper image}{fig:pepper}
+
+\item ii. the top-5 classes are:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|l|l|l|l|l|}
+\hline
+\textbf{Top-5 classes} & 1 & 2 & 3 & 4 & 5 \\ \hline
+Class & bell pepper & cucumber & orange & lemon & corn \\ \hline
+probability & 0.704 & 0.165 & 0.025 & 0.017 & 0.008 \\ \hline
+\end{tabular}
+\caption{Top-5 classes outputed by the neural network}
+\label{table:top5}
+\end{table}
+
+\end{itemize}
+
+
+\subsection{Image classification using CNN features and linear SVM}
+\question{Question 5.2: 
+Report your AP classification results for the three object classes. In the same table, compare your results using CNN features to your results obtained in Assignment 2 for corresponding object classes on the testing image set. What conclusions can you draw?}
+
+Using classes images as positives images and background images as negative images we can train a Linear SVM. As I used a random permutation of labels the result of the Linear SVM might vary a bit between two simulations but the order remains the same. See Table ~\ref{table:comparison_cnn_sift} below for a comparison of Average Precision results using CNN features and histograms of assignment 2:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{|l|l|l|l|}
+\hline
+\textbf{classes} & Motorbike & Aeroplane & Person \\ \hline
+CNN Features with L2 normalization & \textbf{92.78 \%} & \textbf{93.47 \%} & \textbf{95.60 \%} \\ \hline
+FV encoding with Hellinger Kernel & 81.14 \% & 78.13 \% & 82.11 \% \\ \hline
+\end{tabular}
+\caption{Average Precision using CNN features and FV encoding}
+\label{table:comparison_cnn_sift}
+\end{table}
+
+In assignment 2 we have seen that FV encoding using Hellinger kernel achieve the best performances for all three classes. Here we see that using features learned by a well-suited CNN achieve even better performances. This explains why CNN are the most used architecture for object recognition. We don't need to \textsl{handcraft} the features anymore and we are able to achieve even better performances.
+\end{document}

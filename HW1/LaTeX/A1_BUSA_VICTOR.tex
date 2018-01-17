@@ -1,0 +1,262 @@
+\documentclass{article} 
+\input{packages}
+\input{macros}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Header
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\renewcommand{\assignmenttitle}{Assignment 1: Instance-level recognition}
+\renewcommand{\studentname}{Victor Busa}
+\renewcommand{\email}{victor.busa@ens-paris-saclay.fr}
+
+\renewcommand\thesection{\Roman{section}} % Section starting with I, II, ...
+\renewcommand\thesubsection{\thesection.\Alph{subsection}} % Subsection starting with A, B, ...
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Syntax for using figure macros:
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% \singlefig{filename}{scalefactor}{caption}{label}
+% \doublefig{\subfig{filename}{scalefactor}{subcaption}{sublabel}}
+%           {\subfig{filename}{scalefactor}{subcaption}{sublabel}}
+%           {global caption}{label}
+% \triplefig{\subfig{filename}{scalefactor}{subcaption}{sublabel}}
+%           {\subfig{filename}{scalefactor}{subcaption}{sublabel}}
+%           {\subfig{filename}{scalefactor}{subcaption}{sublabel}}
+%           {global caption}{label}
+%
+% Tips:
+% - with scalefactor=1, a single figure will take the whole page width; a double figure, half page width; and a triple figure, a third of the page width
+% - image files should be placed in the image folder
+% - no need to put image extension to include the image
+% - for vector graphics (plots), pdf figures are suggested 
+% - for images, jpg/png are suggested
+% - labels can be left empty {}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Beginning of assignment
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+\maketitle
+
+\section{Sparse features for matching specific objects in images}
+\subsection{SIFT features detections}
+\question{QIA.1: (i) Why is it important to have a similarity co-variant feature detector? (ii) How does this affect the descriptors computed at these detections? (iii) How does this affect the matching process?}
+
+\begin{enumerate}
+\item It is important to have a similarity co-variant feature detector because, in real life, images undergo various transformation such as scaling, rotation, translation (shear, lighting and so on) depending on the conditions and the point of view from which the pictures was taken. Hence, it is important to have a model that does not depend upon these transformations.
+\item The fact that the feature detector is co-variant causes the descriptors computed at these detections to be the same. Hence the descriptors are invariants.
+\item Having feature detectors with similarity co-variance and feature descriptors invariant under similarity transforms allows the matching process to find the same features of the query image even if this one undergoes a similarity transform.
+\end{enumerate}
+
+\question{QIA.2: Show the detected features in the two images for three different values of the peakThreshold option.}
+
+The detected features with three different values of $peakThreshold$ are shown in Figure~\ref{fig:peakThreshold}. % if we want to refer to one particular subplot, we can use its sublabel instead: e.g. \ref{fig:th_0.0001}
+
+\triplefig{\subfig{threshold01}{1}{$peakThreshold = 0.001$}{fig:th_0.001}} % sublabels used here
+          {\subfig{threshold05}{1}{$peakThreshold = 0.005$}{fig:th_0.005}}
+          {\subfig{threshold10}{1}{$peakThreshold = 0.01$}{fig:th_0.01}}
+          {Feature detectors with three different values of $peakThreshold$}{fig:peakThreshold}
+					
+\question{QIA.3: Note the change in spatial density of detections across images, for a given value of peakThreshold. (i) Is the density uniform? If not, why? (ii) Which implications for image matching can this have? (iii) How can it be avoided?}
+
+\begin{enumerate}
+\item The density of detections is not uniform. It actually depends upon the intensity of the image. The higher the contrast, the higher the detection density is.
+\item Hence, the matching process won't work very well when the two images have different intensity
+\item To avoid this problem, we can preprocess the images in order to bring them to the same intensity.
+\end{enumerate}
+
+\subsection{SIFT features descriptors and matching between images}
+\question{QIB.1: Note the descriptors are computed over a much larger region (shown in blue) than the detection (shown in green). Why is this a good strategy?}
+
+The fact that the descriptors are computed over a much larger region than the detection is a good strategy in the sense that the matching will occur on a broader space and hence the detection would likely be more accurate.
+
+\question{QIB.2: Examine carefully the mismatches and try to understand the different causes of mismatch. (i) In your report, present at least 3 of them and explain why the mistakes are being made. For example, is the change in lighting a problem? (ii) What additional constraints can be applied to remove the mismatches? }
+
+\begin{enumerate}
+\item The mismatches can be due to: occlusion, lighting, scale, viewpoint, blur, non rigid deformations (such as clothes), or singularity (such as light reflecting on a surface). These mismatches are shown on Figure~\ref{fig:mismatches_reason} and Figure~\ref{fig:mismatches_reason2}
+\item The change in lighting is a problem, as we've already highlighted in Q1A.3
+\item To reduce the number of mismatches, one can use a cluster of at least 3 features that agree with the \textbf{geometrical position} of an object. These clusters are more likely to be correct than if we only focus on individual features matches.
+\end{enumerate}
+
+\doublefig{\subfig{mismatch_lighting}{1}{Mismatches due to lighting}{fig:lighting}} % sublabels used here
+          {\subfig{mismatch_occlusion}{1}{Mismatches due to partial occlusion}{fig:occlusion}}
+          {Mismatches due to lighting and occlusion}{fig:mismatches_reason}
+					
+\doublefig{\subfig{mismatch_scale}{1}{Mismatches due to scale difference}{fig:scale}} % sublabels used here
+          {\subfig{mismatch_viewpoint}{1}{Mismatches due to change in viewpoint}{fig:viewpoint}}
+          {Mismatches due to change in scale and viewpoint}{fig:mismatches_reason2}
+
+\subsection{Improving SIFT matching using Lowe\'s second nearest neighbor test}
+\question{QIC.1: Illustrate and comment on improvements that you can achieve with this step. Include in your report figures showing the varying number of tentative matches when you change the nnThreshold parameter. }
+
+We can considerably reduce the number of mismatches while discarding very few correct matches by using the second nearest neighbor test. The idea behind this technique relies on the fact that:
+
+\begin{enumerate}
+\item correct matches should have the first nearest neighbor closer than the closest incorrect match (the second nearest neighbor).
+\item erroneous matches should have the first and second nearest neighbor within the same order of magnitude. Hence, incorrect matches will have a ratio around 1.
+\end{enumerate}
+
+\triplefig{\subfig{nnThreshold03}{1}{$nnThreshold = 0.3$}{fig:th_0.3}} % sublabels used here
+          {\subfig{nnThreshold05}{1}{$nnThreshold = 0.5$}{fig:th_0.5}}
+          {\subfig{nnThreshold08}{1}{$nnThreshold = 0.8$}{fig:th_0.8}}
+          {Effect of the second nearest neighbor with three different values of $nnThreshold$}{fig:nnThreshold}
+
+\subsection{Improving SIFT matching using a geometric transformation}
+\question{QID.1: Work out how to compute this transformation from a single correspondence. Hint: recall from Stage I.A that a SIFT feature frame is an oriented circle and map one onto the other. }
+
+As similarity transformation can be written mathematically as follow:
+
+\begin{align*}
+\begin{pmatrix} 
+x' \\
+y'
+\end{pmatrix}
+= S.R(\Theta)
+\begin{pmatrix} 
+x \\
+y
+\end{pmatrix}
++
+\begin{pmatrix} 
+T_x \\
+T_y
+\end{pmatrix}
+\end{align*}
+
+Where $R(\Theta)$ denotes a rotation by $\Theta$, $S$ refers to the isotropic scaling factor and $T_x$, $T_y$ account respectively for the $x$-axis translation and the $y$-axis translation. \\
+
+Considering two corresponding points: $\begin{pmatrix} 
+s \\
+\theta \\
+t_x \\
+t_y \\
+\end{pmatrix}$
+and
+$\begin{pmatrix} 
+s' \\
+\theta' \\
+t_x' \\
+t_y' \\
+\end{pmatrix}$
+
+we can estimate the parameters $S, R(\Theta)$ and $\begin{pmatrix} 
+T_x \\
+T_y
+\end{pmatrix}$ as follow:
+
+\begin{align*}
+S & = \frac{s'}{s} \\
+\Theta & = \theta' - \theta \\
+\begin{pmatrix} 
+T_x \\
+T_y
+\end{pmatrix} & =
+- \frac{s'}{s}R(\theta' - \theta).
+\begin{pmatrix} 
+t_x \\
+t_y
+\end{pmatrix} + 
+\begin{pmatrix} 
+t_x' \\
+t_y'
+\end{pmatrix}
+\end{align*}
+
+\question{QID.2: Illustrate improvements that you can achieve with this step.}
+
+For each tentative correspondence, we compute the similarity transformation. Then we apply the same idea as in the RANSAC algorithm. At the end, after testing several affine transformations, we select the one with the highest count of inliers. The resulting matches after applying a geometric verification are shown in Figure~\ref{fig:geo}
+
+\singlefig{geometricVerification}{1}{Resulting matches after geometric verification}{fig:geo}
+
+\section{Affine co-variant detectors}
+\question{QII.1: Include in your report images and a graph showing the number of verified matches with changing viewpoint. At first there are more similarity detector matches than affine. Why?}
+
+At first, there are more similarity detector matches than affine because similarity transformations are invariants through rotation, translation, and zoom and the first 2 images undergo only simple variations similar to these transformations. Then, when the initial image undergoes a more complex transformation like \textbf{shear}, affine co-variant detectors tend to be more effective as affine transformation can take into account a perspective deformation. Indeed, a square is mapped to any parallelogram through any affine transformation.
+
+\singlefig{detector_curves}{0.8}{Number of verified feature matches with changing viewpoint}{fig:graph}
+
+\singlefig{images_graffiti}{1}{The first 2 transformations of Image 1 (Image 2 and Image 3) are approximately similar to a rotation, while others transformations are more complex and involve changes in perspective}{fig:graffiti}
+
+\singlefig{changingViewpoint}{1}{similarity and affine detector matches between the original graffiti image and its 5 deformations}{fig:viewpoint}
+
+\section{Towards large scale retrieval}
+\subsection{Accelerating descriptor matching with visual words}
+\question{QIIIA.1: In the above procedure the time required to convert the descriptors into visual words was not accounted for. Why the speed of this step is less important in practice?}
+
+In practice, we precompute beforehand the visual words of each descriptor, so that we don't need to account for the time required to convert the descriptors into visual words.
+
+\question{QIIIA.2: What is the speedup in seconds in searching a large, fixed database of 10, 100, 1000 images? Measure and report the speedup in seconds for 10, 100 and 1000 images.}
+
+We can notice that, for a large database, visual words are 50 times faster than comparing descriptors between the query image and the images in the database.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}llllllll@{}}
+\toprule
+{\color[HTML]{000000} \textbf{Database size}} & {\color[HTML]{000000} \textbf{1}} & {\color[HTML]{000000} \textbf{5}} & {\color[HTML]{000000} \textbf{10}} & \textbf{50} & \textbf{100} & \textbf{250} & \textbf{500} \\ \midrule
+\textbf{Raw SIFT Time} & 0.038 & 0.137 & 0.243 & 1.242 & 2.399 & 2.399 & 11.305 \\
+\textbf{Visual words Time} & 0.0016 & 0.0039 & 0.0067 & 0.0297 & 0.0574 & 0.1329 & 0.2684 \\ \bottomrule
+\end{tabular}
+\caption{Speed comparison (in second) of Raw SIFT descriptors and Visual words methods on database of different sizes}
+\label{speedTable}
+\end{table}
+
+\subsection{Searching with an inverted index}
+\question{QIIIB.1: Why does the top image have a score of 1?}
+
+The first image has a score of one because it is both the query image and the target image. As the similarity between a query image and a target image is calculate as the inner product of the normalized histograms of theses images, that explains why the score of the first image is 1 ($<u,u>= |u|^2 = 1$)
+
+\question{QIIIB.2: Show the first 25 matching results, indicating the correct and incorrect matches. How many erroneously matched images do you count in the top results?}
+
+There are \textbf{16 erroneous} images among the 25 top results.
+The erroneous images are highlighted in red as shown in Figure~\ref{fig:errImages}.
+
+\singlefig{erroneous_img}{1}{Erroneous images are highlighted in red}{fig:errImages}
+
+\subsection{Searching with an inverted index}
+\question{QIIIC.1: Why is the top score much larger than 1 now?}
+
+We are now re-scoring the images based on the number of inlier matches after a geometric verification step. Hence, the measure is not normalized anymore and that explains why the score is much higher than 1.
+
+\question{QIIIC.2: Illustrate improvements of retrieval results after geometric verification.}
+
+Using geometric verification allows improving the recognition a lot. Indeed, the erroneous images appear after the correct one whereas when we were searching with an inverted index the correct and incorrect images were mixed. Also, we can notice that there is a gap in term of geometric scoring between the last correct image and the first erroneous image: respectively 37 and 10. See Figure~\ref{fig:errImages_geo}.
+
+\singlefig{erroneous_img_geo}{1}{Erroneous images are highlighted in red}{fig:errImages_geo}
+
+\section{Large scale retrieval}
+\question{QIV.1: How many features are there in the painting database?}
+
+the painting database actually stores an inverted file index with 100000 visual words for each image and there are 1734 images. Also, we can notice that each word is weighted by its inverse document frequency as shown in Figure~\ref{fig:imdb}
+
+\singlefig{imdb}{1}{Image database structure}{fig:imdb}
+
+\question{QIV.2: How much memory does the image database take?}
+
+the image database takes $\mathcal{O}(NumOfWords \times NumOfImages)$ Memory. \newline
+Here we have: \textbf{NumOfWords} = 100000 and \textbf{NumOfImages} = 1734.
+
+\question{QIV.3: What are the stages of the search? And how long does each of the stages take for one of the query images?}
+
+Stage of the search:
+\begin{enumerate}
+\item We compute the histogram of the visual words in the query image and in the database images
+\item We score each image of the database using an inverted file index. This can be done quite efficiently using Matlab's built-in sparse matrix engine.
+\item We re-score the top-ranked images from the previous step using a geometric verifications step.
+\end{enumerate}
+
+\begin{table}[H]
+\centering
+\caption{Search Times (in second) for each mystery images}
+\label{Images recognition}
+\begin{tabular}{llll}
+{\color[HTML]{000000} \textbf{Image}} & {\color[HTML]{000000} \textbf{The Starry Night}} & {\color[HTML]{000000} \textbf{Wheat Field with Cypresses}} & {\color[HTML]{000000} \textbf{Sedie}} \\
+\textbf{Feature time} & 0.235 & 0.424 & 1.770 \\
+\textbf{Index time} & 0.028 & 0.032 & 0.034 \\
+\textbf{Geometric verification} & 0.372 & 0.541 & 1.967
+\end{tabular}
+\end{table}
+
+\end{document} 
